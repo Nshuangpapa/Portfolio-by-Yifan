@@ -1,0 +1,127 @@
+---
+title: "Question R02.1"
+author: "Yifan Wang"
+date: "2023-10-22"
+output: html_document
+---
+
+!!!This part of the code should be right at the end of the workshop 2.3 code. 
+this code can run ONLY after running ALL the "weather forecast" part of workshop2.3 code.!!!
+
+In other words, this code should be copied in workshop2.3.rmd at the end, and run it last
+
+This part is about using the model provided by workshop2.3 to predict the temperature in 2040
+```{r}
+# Create a data frame with a "Time" column, covering the months from 2040 to 2041
+new_data <- data.frame(Time = seq(2040, 2041, by = 1/12))
+
+# Make predictions using the linear model
+linear_prediction <- predict(tempmodelcv, newdata = new_data)
+
+# Make predictions using the polynomial model
+polynomial_prediction <- predict(tempmodelcvint, newdata = new_data)
+
+# Create a data frame to store the predictions
+predictions_df <- data.frame(Time = new_data$Time,
+                             Linear_Model_Prediction = linear_prediction,
+                             Polynomial_Model_Prediction = polynomial_prediction)
+
+# Print the prediction results as a list
+print(predictions_df)
+
+```
+
+This part uses the ARIMA model for prediction
+```{r}
+# Load the required library
+if (!require("forecast")) install.packages("forecast")
+
+# Create a time series object
+temperature_ts <- ts(temperature2$MA, frequency = 12)  # Assuming the data is monthly
+
+# Fit an ARIMA model
+arima_model <- auto.arima(temperature_ts)
+
+# View a summary of the ARIMA model
+summary(arima_model)
+
+# Make forecasts
+forecast_values <- forecast(arima_model, h = 12*25)  # Forecast the next 24 years (12 months/year * 25 years)
+
+# Print the forecasted values
+print(forecast_values)
+```
+This part is cross-validation of the ARIMA model. 
+attention: running time is about 3 minutes.
+```{r}
+# Select the first time series
+selected_ts <- temperature_ts
+
+# Set cross-validation parameters
+n_splits <- 5  # Split the data into 5 parts
+
+# Initialize performance metric list
+mse_scores <- numeric(n_splits)
+
+# Perform cross-validation
+for (i in 1:(n_splits-1)) {
+  # Split the data into training and testing sets
+  train_data <- window(selected_ts, end = 167 * i / n_splits)
+  test_data <- window(selected_ts, start = 167 * i / n_splits + 1)
+  
+  # Fit an ARIMA model
+  arima_model <- auto.arima(train_data)
+  
+  # Make predictions
+  forecast_values <- forecast(arima_model, h = length(test_data))
+  
+  # Calculate mean squared error
+  mse_scores[i] <- mean((test_data - forecast_values$mean)^2)
+}
+
+# Output cross-validation performance metrics
+cat("Mean Squared Error (MSE):", mse_scores[1:(n_splits-1)], "\n")
+cat("Average MSE:", mean(mse_scores[1:(n_splits-1)]), "\n")
+```
+This is the result that should appear:
+
+Mean Squared Error (MSE): 0.1799287 0.3330269 0.1127717 0.1524568 
+Average MSE: 0.194546 
+
+SARIMA_model 
+```{r}
+# Load the required library
+if (!require("forecast")) install.packages("forecast")
+
+# Create a time series object
+temperature_ts <- ts(temperature2$MA, frequency = 12)  # Assuming the data is monthly
+
+# Specify SARIMA order and seasonal order
+p <- 1  # Replace with the appropriate non-seasonal autoregressive order
+d <- 1  # Replace with the appropriate non-seasonal differencing order
+q <- 1  # Replace with the appropriate non-seasonal moving average order
+P <- 1  # Replace with the appropriate seasonal autoregressive order
+D <- 1  # Replace with the appropriate seasonal differencing order
+Q <- 1  # Replace with the appropriate seasonal moving average order
+# Specify SARIMA order and seasonal order
+seasonal_period <- 12  # Assuming monthly data
+
+# Create the seasonal order list
+seasonal_order <- list(order = c(P, D, Q), period = seasonal_period)
+
+# Fit a SARIMA model
+sarima_model <- Arima(temperature_ts, order = c(p, d, q), seasonal = seasonal_order)
+
+
+# View a summary of the SARIMA model
+summary(sarima_model)
+
+# Make forecasts
+forecast_values <- forecast(sarima_model, h = 12*25)  # Forecast the next 24 years (12 months/year * 25 years)
+
+# Print the forecasted values
+print(forecast_values)
+
+```
+
+
